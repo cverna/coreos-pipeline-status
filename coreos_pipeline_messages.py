@@ -89,8 +89,22 @@ def fetch_messages(client, channel_id, oldest, latest):
     return messages
 
 
+def post_message(client, channel_id, message_text):
+    """Post a message to the Slack channel."""
+    try:
+        response = client.chat_postMessage(
+            channel=channel_id,
+            text=message_text,
+            mrkdwn=True
+        )
+        return response
+    except SlackApiError as e:
+        print(f"Error posting message to Slack: {e.response['error']}", file=sys.stderr)
+        sys.exit(1)
+
+
 def main():
-    parser = argparse.ArgumentParser(description='Fetch Slack messages for a specific day as JSON')
+    parser = argparse.ArgumentParser(description='Fetch Slack messages for a specific day as JSON or post a message to the channel')
     parser.add_argument(
         '--date',
         type=str,
@@ -107,6 +121,12 @@ def main():
         '--pretty',
         action='store_true',
         help='Pretty print JSON output'
+    )
+    parser.add_argument(
+        '--summary',
+        type=str,
+        help='Post a message to the Slack channel (supports emojis and rich text)',
+        default=None
     )
 
     args = parser.parse_args()
@@ -125,6 +145,14 @@ def main():
     except SlackApiError as e:
         print(f"Authentication failed: {e.response['error']}", file=sys.stderr)
         sys.exit(1)
+
+    # Handle summary message posting
+    if args.summary:
+        response = post_message(client, channel_id, args.summary)
+        if response.get('ok'):
+            print(f"Message posted successfully to channel {channel_id}")
+            print(f"Message timestamp: {response.get('ts')}")
+        return
 
     # Parse date and get timestamps
     oldest, latest = parse_date(args.date)
